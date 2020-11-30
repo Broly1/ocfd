@@ -3,7 +3,6 @@
 # License: GNU General Public License v3.0
 # https://www.gnu.org/licenses/gpl-3.0.txt
 # This script is inteded to create a opencore usb-installer on linux 
-# dependency gibmacos https://github.com/corpnewt/gibMacOS
 
 RED="\033[1;31m\e[3m"
 NOCOLOR="\e[0m\033[0m"
