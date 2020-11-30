@@ -20,7 +20,7 @@ heading() { echo -e   -- "   \033[1;30;42m $1 \033[0m\n\n"; }
 banner() {
 	clear
 	echo "  ############################ "
-	echo " # WELCOME TO LNXOCUSB.SH   # "
+	echo " # WELCOME TO OCFLASHDRIVE  # "
 	echo "############################ "
 	echo " "
 	echo " "
