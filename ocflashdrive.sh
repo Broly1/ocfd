@@ -68,7 +68,7 @@ ImportantTools(){
   # Simple menu to select the Downloaded version of macOS only usefull if you download
   # multiple versions.
   banner
-  FILE=(BaseSystem.dmg)
+  FILE=(*.dmg)
   if [ -f "$FILE" ]; then
 	  echo "extracting $FILE..."
 	  rm -rf *.hfs *RELEASE.zip
