@@ -19,7 +19,7 @@ if [[ -f /etc/debian_version ]]; then
 elif [[ -f /etc/fedora-release ]]; then
 	dnf install -y wget curl p7zip-plugins
 elif [[ -f /etc/arch-release ]]; then
-	pacman -Syu --noconfirm --needed wget curl p7zip
+	pacman -Sy --noconfirm --needed wget curl p7zip
 else
 	printf "Your distro is not supported!\n"
 	exit 1
