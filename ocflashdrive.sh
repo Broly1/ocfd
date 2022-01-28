@@ -36,6 +36,8 @@ EOF
         dnf install -y wget curl p7zip-plugins
         elif [[ -f /etc/arch-release ]]; then
         pacman -Sy --noconfirm --needed wget curl p7zip
+        elif [[ -f /etc/alpine-release ]]; then
+        apk add wget curl p7zip sgdisk sgdisk
     else
         printf "Your distro is not supported!\n"
         exit 1
