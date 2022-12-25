@@ -19,7 +19,29 @@ EOF
 set -e
 }
 
-ImportantTools(){
+getthedrive(){
+clear
+cat << "EOF"
+################################################
+#  WARNING: THE SELECTED DRIVE WILL BE ERASED  #
+################################################
+
+Please select the usb-drive!
+
+EOF
+readarray -t lines < <((lsblk -p -no name,size,MODEL,VENDOR,TRAN | grep "usb"))
+select choice in "${lines[@]}"; do
+    [[ -n "$choice" ]] || { printf ">>> Invalid Selection!\n" >&2; continue; }
+    break
+done
+read -r drive _ <<<"$choice"
+if [[ -z "$choice" ]]; then
+	printf "Please insert the USB Drive and try again.\n"
+	exit 1
+fi
+}
+
+dependencies(){
     clear
 	cat << "EOF"
 ################################
@@ -44,7 +66,7 @@ EOF
     fi
 }
 
-partformat(){
+formater(){
     clear
 	cat << "EOF"
 ###############################
@@ -67,7 +89,7 @@ while true; do
 read -r -p "$(printf %s "Drive ""$drive"" will be erased, wget, curl and p7zip will be installed do you wish to continue (y/n)? ")" yn
 	case $yn in
 		[Yy]*)
-			ImportantTools "$@"; partformat "$@"
+			dependencies "$@"; formater "$@"
 			break
 			;;
 		[Nn]*) exit ;;
@@ -87,10 +109,10 @@ Extracting BaseSystem.dmg with p7zip!
 
 EOF
     
-    FILE=(*.dmg)
+    FILE=(com.apple.recovery.boot/*.dmg)
     if [[ -f "${FILE[*]}" ]]; then
-        rm -rf -- *.hfs
-        7z e -tdmg -- *.dmg -- *.hfs
+        rm -rf com.apple.recovery.boot/*.hfs
+        7z e -tdmg "${FILE[*]}" -ocom.apple.recovery.boot/ -- *.hfs
     else
         printf "Please Download the macOS Recovery with macrecovery!\n"
         exit 1
@@ -107,9 +129,9 @@ burning(){
 Copying image to the flash drive with dd command!
 
 EOF
-    myhfs=$(ls *.hfs)
+    myhfs=$(ls com.apple.recovery.boot/*.hfs)
     dd bs=8M if="$myhfs" of="$drive"2 status=progress oflag=sync
-    rm -rf -- *.hfs
+    rm -rf com.apple.recovery.boot/*.hfs
     umount "$drive"?* || :
     sleep 3s
 }
@@ -126,28 +148,6 @@ EOF
     cp -r ../../X64/EFI/ /mnt/
     cp -r ../../Docs/Sample.plist /mnt/EFI/OC/
     printf "Installation finished, open /mnt and edit oc for your machine!!\n"
-}
-
-getthedrive(){
-clear
-cat << "EOF"
-################################################
-#  WARNING: THE SELECTED DRIVE WILL BE ERASED  #
-################################################
-
-Please select the usb-drive!
-
-EOF
-readarray -t lines < <((lsblk -p -no name,size,MODEL,VENDOR,TRAN | grep "usb"))
-select choice in "${lines[@]}"; do
-    [[ -n "$choice" ]] || { printf ">>> Invalid Selection!\n" >&2; continue; }
-    break
-done
-read -r drive _ <<<"$choice"
-if [[ -z "$choice" ]]; then
-	printf "Please insert the USB Drive and try again.\n"
-	exit 1
-fi
 }
 
 main() {
