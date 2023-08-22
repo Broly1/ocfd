@@ -41,6 +41,8 @@ dependencies(){
         pacman -Sy --noconfirm --needed wget curl p7zip
     elif [[ -f /etc/alpine-release ]]; then
         apk add wget curl p7zip
+    elif [[ -f /etc/gentoo-release ]]; then
+       emerge -a -v --noreplace  wget curl p7zip
     else
         printf "Your distro is not supported!\n"
         exit 1
@@ -107,11 +109,12 @@ burning(){
 InstallOC(){
     clear
     printf "Installing OpenCore to $drive...\n"
+    mkdir -p /mnt/usb
     mkfs.fat -F32 -n OPENCORE "$drive"1
-    mount -t vfat "$drive"1 /mnt/ -o rw,umask=000; sleep 3s
-    cp -r ../../X64/EFI/ /mnt/
-    cp -r ../../Docs/Sample.plist /mnt/EFI/OC/
-    printf "OpenCore has been installed to $drive! Please open /mnt and edit OC for your machine!!\n"
+    mount -t vfat "$drive"1 /mnt/usb -o rw,umask=000; sleep 3s
+    cp -r ../../X64/EFI/ /mnt/usb
+    cp -r ../../Docs/Sample.plist /mnt/usb/EFI/OC/
+    printf "OpenCore has been installed to $drive! Please open /mnt/usb and edit OC for your machine!!\n"
 }
 
 # Main function that runs all the sub-functions
