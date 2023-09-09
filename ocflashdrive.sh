@@ -86,7 +86,7 @@ extractor() {
 	printf "Extracting macOS recovery image...\n"
 	FILE=(com.apple.recovery.boot/*.dmg)
 	if [ -n "$FILE" ]; then
-		7z e -tdmg "${FILE[*]}" -aoa -ocom.apple.recovery.boot/ -- *.hfs 
+		7z e -bso0 -bsp1 -tdmg "${FILE[*]}" -aoa -ocom.apple.recovery.boot/ -- *.hfs 
 	else
 		printf "Please download the macOS Recovery with macrecovery!\n"
 		exit 1
@@ -99,7 +99,6 @@ burning(){
 	myhfs=$(ls com.apple.recovery.boot/*.hfs)
 	printf "Burning the macOS recovery image to $drive...\n"
 	dd bs=8M if="$myhfs" of="$drive"2 status=progress oflag=sync
-	rm -rf com.apple.recovery.boot/*.hfs
 	umount "$drive"?* || :
 	sleep 3s
 	printf "The macOS recovery image has been burned to $drive!\n"
