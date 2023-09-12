@@ -34,15 +34,15 @@ dependencies(){
 	printf "Installing dependencies...\n\n"
 	sleep 2s
 	if [[ -f /etc/debian_version ]]; then
-		apt install -y wget curl p7zip-full
+		apt install -y wget curl p7zip-full dosfstools
 	elif [[ -f /etc/fedora-release ]]; then
-		dnf install -y wget curl p7zip-plugins
+		dnf install -y wget curl p7zip-plugins dosfstools
 	elif [[ -f /etc/arch-release ]]; then
-		pacman -Sy --noconfirm --needed wget curl p7zip
+		pacman -Sy --noconfirm --needed wget curl p7zip dosfstools
 	elif [[ -f /etc/alpine-release ]]; then
-		apk add wget curl p7zip
+		apk add wget curl p7zip dosfstools
 	elif [[ -f /etc/gentoo-release ]]; then
-		emerge --nospinner --oneshot --noreplace  wget curl p7zip
+		emerge --nospinner --oneshot --noreplace  wget curl p7zip dosfstools
 	else
 		printf "Your distro is not supported!\n"
 		exit 1
@@ -58,13 +58,14 @@ formater(){
 	wipefs -af "$drive"
 	sgdisk "$drive" --new=0:0:+300MiB -t 0:ef00 && partprobe
 	sgdisk "$drive" --new=0:0: -t 0:af00 && partprobe
+	mkfs.fat -F 32 "$drive"1
 	sleep 2s
 }
 
 # This function prompts the user if they want to continue with the formatting and installation of dependencies.
 formating(){
 	while true; do
-		read -r -p "$(printf %s "Drive ""$drive"" will be erased, wget, curl, and p7zip will be installed. Do you wish to continue (y/n)? ")" yn
+		read -r -p "$(printf %s "Drive ""$drive"" will be erased, wget, curl, p7zip and dosfstools will be installed. Do you wish to continue (y/n)? ")" yn
 		case $yn in
 			[Yy]*)
 				dependencies "$@"; formater "$@"
