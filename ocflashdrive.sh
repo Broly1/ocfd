@@ -28,6 +28,23 @@ get_the_drive(){
 	fi
 }
 
+# This function extracts the macOS recovery image from the downloaded DMG file.
+extractor() {
+	recovery_file1="com.apple.recovery.boot/BaseSystem.dmg"
+	recovery_file2="com.apple.recovery.boot/RecoveryImage.dmg"
+
+	if [ -e "$recovery_file1" ]; then
+		printf "Extracting "$recovery_file1"!\n"
+		7z e -bso0 -bsp1 -tdmg "$recovery_file1" -aoa -ocom.apple.recovery.boot/ -- *.hfs
+	elif [ -e "$recovery_file2" ]; then
+		printf "Extracting "$recovery_file2"!\n"
+		7z e -bso0 -bsp1 -tdmg "$recovery_file2" -aoa -ocom.apple.recovery.boot/ -- *.hfs
+	else
+		printf "Please download the macOS Recovery with macrecovery!\n"
+		exit 1
+	fi
+}
+
 # This function installs the necessary dependencies for the script to run.
 dependencies(){
 	clear
@@ -68,7 +85,7 @@ formating(){
 		read -r -p "$(printf %s "Drive ""$drive"" will be erased, wget, curl, p7zip and dosfstools will be installed. Do you wish to continue (y/n)? ")" yn
 		case $yn in
 			[Yy]*)
-				dependencies "$@"; formater "$@"
+				extractor "$@"; dependencies "$@"; formater "$@"
 				break
 				;;
 			[Nn]*) 
@@ -80,18 +97,6 @@ formating(){
 				;;
 		esac
 	done
-}
-
-# This function extracts the macOS recovery image from the downloaded DMG file.
-extractor() {
-	printf "Extracting macOS recovery image...\n"
-	FILE=(com.apple.recovery.boot/*.dmg)
-	if [ -n "$FILE" ]; then
-		7z e -bso0 -bsp1 -tdmg "${FILE[*]}" -aoa -ocom.apple.recovery.boot/ -- *.hfs 
-	else
-		printf "Please download the macOS Recovery with macrecovery!\n"
-		exit 1
-	fi
 }
 
 # Burn the macOS recovery image to the target drive
@@ -135,7 +140,6 @@ main() {
 	welcome "$@"
 	get_the_drive "$@"
 	formating "$@"
-	extractor "$@"
 	burning "$@"
 	InstallOC "$@"
 }
