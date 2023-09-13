@@ -40,7 +40,8 @@ extractor() {
 		printf "Extracting "$recovery_file2"!\n"
 		7z e -bso0 -bsp1 -tdmg "$recovery_file2" -aoa -ocom.apple.recovery.boot/ -- *.hfs
 	else
-		printf "Please download the macOS Recovery with macrecovery!\n"
+		clear
+		printf "Please download the macOS Recovery with macrecovery!\n\n"
 		exit 1
 	fi
 }
@@ -82,7 +83,8 @@ formater(){
 # This function prompts the user if they want to continue with the formatting and installation of dependencies.
 formating(){
 	while true; do
-		read -r -p "$(printf %s "Drive ""$drive"" will be erased, wget, curl, p7zip and dosfstools will be installed. Do you wish to continue (y/n)? ")" yn
+		printf " The disk '%s' will be erased,\n and the following tools will be installed:\n wget, curl, p7zip, and dosfstools.\n Do you want to proceed? [y/n]: " "$drive"
+		read -r yn
 		case $yn in
 			[Yy]*)
 				extractor "$@"; dependencies "$@"; formater "$@"
