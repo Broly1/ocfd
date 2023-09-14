@@ -30,18 +30,19 @@ get_the_drive(){
 
 # This function extracts the macOS recovery image from the downloaded DMG file.
 extractor() {
-	recovery_file1="com.apple.recovery.boot/BaseSystem.dmg"
-	recovery_file2="com.apple.recovery.boot/RecoveryImage.dmg"
+	recovery_dir=com.apple.recovery.boot
+	recovery_file1="$recovery_dir/BaseSystem.dmg"
+	recovery_file2="$recovery_dir/RecoveryImage.dmg"
+	rm -rf "$recovery_dir"/*.hfs
 
 	if [ -e "$recovery_file1" ]; then
-		printf "Extracting "$recovery_file1"!\n"
-		7z e -bso0 -bsp1 -tdmg "$recovery_file1" -aoa -ocom.apple.recovery.boot/ -- *.hfs
+		printf "  Extracting...\n %s $recovery_file1!"
+		7z e -bso0 -bsp1 -tdmg "$recovery_file1" -aoa -o"$recovery_dir" -- *.hfs
 	elif [ -e "$recovery_file2" ]; then
-		printf "Extracting "$recovery_file2"!\n"
-		7z e -bso0 -bsp1 -tdmg "$recovery_file2" -aoa -ocom.apple.recovery.boot/ -- *.hfs
+		printf "\n  Extracting...\n %s $recovery_file2!"
+		7z e -bso0 -bsp1 -tdmg "$recovery_file2" -aoa -o"$recovery_dir" -- *.hfs
 	else
-		clear
-		printf "Please download the macOS Recovery with macrecovery!\n\n"
+		printf "Please download the macOS Recovery with macrecovery!\n"
 		exit 1
 	fi
 }
@@ -105,22 +106,22 @@ formating(){
 burning(){
 	clear
 	myhfs=$(ls com.apple.recovery.boot/*.hfs)
-	printf "Burning the macOS recovery image to $drive...\n"
+	printf "Burning the macOS recovery image to the drive...\n"
 	dd bs=8M if="$myhfs" of="$drive"2 status=progress oflag=sync
 	umount "$drive"?* || :
 	sleep 3s
-	printf "The macOS recovery image has been burned to $drive!\n"
+	printf "The macOS recovery image has been burned to the drive!\n"
 }
 
 # Install OpenCore to the target drive
 InstallOC() {
 	clear
-	printf "Installing OpenCore to $drive...\n"
+	printf "Installing OpenCore to the drive...\n"
 	mount_point="/mnt"
 	new_mount_point="ocfd15364"
 
 	# Check if the mount point directory is not empty
-	if [ ! -z "$(ls -A "$mount_point")" ]; then
+	if [ -n "$(ls -A "$mount_point")" ]; then
 		# Create a new mount point if it's not empty
 		mount_directory="${mount_point}/${new_mount_point}"
 		mkdir -p "$mount_directory"
@@ -133,8 +134,8 @@ InstallOC() {
 	# Copy OpenCore EFI files
 	cp -r ../../X64/EFI/ "${mount_point}"
 	cp -r ../../Docs/Sample.plist "${mount_point}/EFI/OC/"
-	printf "OpenCore has been installed to $drive! Please open ${mount_point} and edit OC for your machine!!\n"
-	ls "${mount_point}/EFI/OC"
+	printf " OpenCore has been installed to the drive!\n Please open '/mnt' and edit OC for your machine!!\n"
+	ls -1 "${mount_point}/EFI/OC"
 }
 
 # Main function that runs all the sub-functions
