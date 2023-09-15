@@ -12,7 +12,7 @@ welcome(){
 	set -e
 }
 
-# This function gets the USB drive selected by the user.
+# Get the USB drive selected by the user.
 get_the_drive(){
 	clear
 	printf "Please select the USB drive to use:\n\n"
@@ -28,8 +28,8 @@ get_the_drive(){
 	fi
 }
 
-# This function extracts the macOS recovery image from the downloaded DMG file.
-extractor() {
+# Extract the macOS recovery image from the downloaded DMG file.
+extract_recovery_dmg() {
 	recovery_dir=com.apple.recovery.boot
 	recovery_file1="$recovery_dir/BaseSystem.dmg"
 	recovery_file2="$recovery_dir/RecoveryImage.dmg"
@@ -47,8 +47,8 @@ extractor() {
 	fi
 }
 
-# This function installs the necessary dependencies for the script to run.
-dependencies(){
+# Install the necessary dependencies for the script to run.
+install_dependencies(){
 	clear
 	printf "Installing dependencies...\n\n"
 	sleep 2s
@@ -68,8 +68,8 @@ dependencies(){
 	fi
 }
 
-# This function formats the USB drive.
-formater(){
+# Format the USB drive.
+format_drive(){
 	clear
 	printf "Formatting the USB drive...\n\n"
 	umount "$drive"* || :
@@ -81,14 +81,16 @@ formater(){
 	sleep 2s
 }
 
-# This function prompts the user if they want to continue with the formatting and installation of dependencies.
-formating(){
+# Prompt the user to start installation.
+prepare_for_installation(){
 	while true; do
 		printf " The disk '%s' will be erased,\n and the following tools will be installed:\n wget, curl, p7zip, and dosfstools.\n Do you want to proceed? [y/n]: " "$drive"
 		read -r yn
 		case $yn in
 			[Yy]*)
-				extractor "$@"; dependencies "$@"; formater "$@"
+				extract_recovery_dmg "$@"
+				install_dependencies "$@"
+				format_drive "$@"
 				break
 				;;
 			[Nn]*) 
@@ -103,10 +105,10 @@ formating(){
 }
 
 # Burn the macOS recovery image to the target drive
-burning(){
+burning_drive(){
 	clear
 	myhfs=$(ls com.apple.recovery.boot/*.hfs)
-	printf "Burning the macOS recovery image to the drive...\n"
+	printf "Installing macOS recovery image...\n"
 	dd bs=8M if="$myhfs" of="$drive"2 status=progress oflag=sync
 	umount "$drive"?* || :
 	sleep 3s
@@ -114,7 +116,7 @@ burning(){
 }
 
 # Install OpenCore to the target drive
-InstallOC() {
+Install_OC() {
 	clear
 	printf "Installing OpenCore to the drive...\n"
 	mount_point="/mnt"
@@ -138,14 +140,11 @@ InstallOC() {
 	ls -1 "${mount_point}/EFI/OC"
 }
 
-# Main function that runs all the sub-functions
 main() {
 	welcome "$@"
 	get_the_drive "$@"
-	formating "$@"
-	burning "$@"
-	InstallOC "$@"
+	prepare_for_installation "$@"
+	burning_drive "$@"
+	Install_OC "$@"
 }
-
-# Run the main function with all the arguments passed to the script
 main "$@"
