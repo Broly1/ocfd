@@ -47,25 +47,91 @@ extract_recovery_dmg() {
 	fi
 }
 
-# Install the necessary dependencies for the script to run.
-install_dependencies(){
-	clear
-	printf "Installing dependencies...\n\n"
-	sleep 2s
-	if [[ -f /etc/debian_version ]]; then
-		apt install -y wget curl p7zip-full dosfstools
-	elif [[ -f /etc/fedora-release ]]; then
-		dnf install -y wget curl p7zip-plugins dosfstools
-	elif [[ -f /etc/arch-release ]]; then
-		pacman -Sy --noconfirm --needed wget curl p7zip dosfstools
-	elif [[ -f /etc/alpine-release ]]; then
-		apk add wget curl p7zip dosfstools
-	elif [[ -f /etc/gentoo-release ]]; then
-		emerge --nospinner --oneshot --noreplace  wget curl p7zip dosfstools
+# Search the system if the packages we need are already installed
+install_apt_package() {
+	local package_name="$1"
+	if ! dpkg -l "$package_name" > /dev/null 2>&1; then
+		apt update
+		apt install -y "$package_name"
 	else
-		printf "Your distro is not supported!\n"
-		exit 1
+		printf "Package '%s' is already installed (APT).\n" "$package_name"
 	fi
+}
+
+install_dnf_package() {
+	local package_name="$1"
+	if ! rpm -q "$package_name" > /dev/null 2>&1; then
+		dnf install -y "$package_name"
+	else
+		printf "Package '%s' is already installed (DNF).\n" "$package_name"
+	fi
+}
+
+install_pacman_package() {
+	local package_name="$1"
+	if ! pacman -Q "$package_name" > /dev/null 2>&1; then
+		pacman -Sy --noconfirm --needed "$package_name"
+	else
+		printf "Package '%s' is already installed (Pacman).\n" "$package_name"
+	fi
+}
+
+install_apk_package() {
+	local package_name="$1"
+	if ! apk info "$package_name" > /dev/null 2>&1; then
+		apk add "$package_name"
+	else
+		printf "Package '%s' is already installed (APK).\n" "$package_name"
+	fi
+}
+
+install_emerge_package() {
+	local package_name="$1"
+	if ! emerge -pv "$package_name" | grep "install" > /dev/null 2>&1; then
+		emerge --nospinner --oneshot --noreplace "$package_name"
+	else
+		printf "Package '%s' is already installed (Portage).\n" "$package_name"
+	fi
+}
+
+install_missing_packages() {
+	clear
+	cat <<"EOF"
+#############################
+#  Installing Dependencies  #
+#############################
+EOF
+debian_packages=("wget" "curl" "p7zip-full" "dosfstools")
+fedora_packages=("wget" "curl" "p7zip-plugins" "dosfstools")
+arch_packages=("wget" "curl" "p7zip" "dosfstools")
+alpine_packages=("wget" "curl" "p7zip" "dosfstools")
+gentoo_packages=("net-misc/wget" "net-misc/curl" "app-arch/p7zip" "sys-fs/dosfstools")
+
+    # Check for the distribution type and call the appropriate function
+    if [[ -f /etc/debian_version ]]; then
+	    for package in "${debian_packages[@]}"; do
+		    install_apt_package "$package"
+	    done
+    elif [[ -f /etc/fedora-release ]]; then
+	    for package in "${fedora_packages[@]}"; do
+		    install_dnf_package "$package"
+	    done
+    elif [[ -f /etc/arch-release ]]; then
+	    for package in "${arch_packages[@]}"; do
+		    install_pacman_package "$package"
+	    done
+    elif [[ -f /etc/alpine-release ]]; then
+	    for package in "${alpine_packages[@]}"; do
+		    install_apk_package "$package"
+	    done
+    elif [[ -f /etc/gentoo-release ]]; then
+	    for package in "${gentoo_packages[@]}"; do
+		    install_emerge_package "$package"
+	    done
+    else
+	    printf "Your distro is not supported!\n"
+	    exit 1
+    fi
 }
 
 # Format the USB drive.
@@ -88,8 +154,8 @@ prepare_for_installation(){
 		read -r yn
 		case $yn in
 			[Yy]*)
+				install_missing_packages "$@"
 				extract_recovery_dmg "$@"
-				install_dependencies "$@"
 				format_drive "$@"
 				break
 				;;
