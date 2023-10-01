@@ -34,13 +34,16 @@ extract_recovery_dmg() {
 	recovery_file1="$recovery_dir/BaseSystem.dmg"
 	recovery_file2="$recovery_dir/RecoveryImage.dmg"
 	rm -rf "$recovery_dir"/*.hfs
+	printf "Downloading 7zip.\n"
+	wget -O - "https://sourceforge.net/projects/sevenzip/files/7-Zip/23.01/7z2301-linux-x64.tar.xz" | tar -xJf - 7zz
+	chmod +x 7zz
 
 	if [ -e "$recovery_file1" ]; then
-		printf "  Extracting...\n %s $recovery_file1!"
-		7z e -bso0 -bsp1 -tdmg "$recovery_file1" -aoa -o"$recovery_dir" -- *.hfs
+		printf "  Extracting Recovery...\n %s $recovery_file1!\n"
+		./7zz e -bso0 -bsp1 -tdmg "$recovery_file1" -aoa -o"$recovery_dir" -- *.hfs; rm -rf 7zz
 	elif [ -e "$recovery_file2" ]; then
-		printf "\n  Extracting...\n %s $recovery_file2!"
-		7z e -bso0 -bsp1 -tdmg "$recovery_file2" -aoa -o"$recovery_dir" -- *.hfs
+		printf "\n  Extracting Recovery...\n %s $recovery_file2!\n"
+		./7zz e -bso0 -bsp1 -tdmg "$recovery_file2" -aoa -o"$recovery_dir" -- *.hfs; rm -rf 7zz
 	else
 		printf "Please download the macOS Recovery with macrecovery!\n"
 		exit 1
@@ -49,19 +52,18 @@ extract_recovery_dmg() {
 
 # Install the necessary dependencies for the script to run.
 install_dependencies(){
-	clear
 	printf "Installing dependencies...\n\n"
 	sleep 2s
 	if [[ -f /etc/debian_version ]]; then
-		apt install -y wget curl p7zip-full dosfstools
+		apt install -y wget curl dosfstools
 	elif [[ -f /etc/fedora-release ]]; then
-		dnf install -y wget curl p7zip-plugins dosfstools
+		dnf install -y wget curl dosfstools
 	elif [[ -f /etc/arch-release ]]; then
-		pacman -Sy --noconfirm --needed wget curl p7zip dosfstools
+		pacman -Sy --noconfirm --needed wget curl dosfstools
 	elif [[ -f /etc/alpine-release ]]; then
-		apk add wget curl p7zip dosfstools
+		apk add wget curl dosfstools
 	elif [[ -f /etc/gentoo-release ]]; then
-		emerge --nospinner --oneshot --noreplace  wget curl p7zip dosfstools
+		emerge --nospinner --oneshot --noreplace  wget curl dosfstools
 	else
 		printf "Your distro is not supported!\n"
 		exit 1
@@ -70,7 +72,6 @@ install_dependencies(){
 
 # Format the USB drive.
 format_drive(){
-	clear
 	printf "Formatting the USB drive...\n\n"
 	umount "$drive"* || :
 	sleep 2s
@@ -84,7 +85,7 @@ format_drive(){
 # Prompt the user to start installation.
 prepare_for_installation(){
 	while true; do
-		printf " The disk '%s' will be erased,\n and the following tools will be installed:\n wget, curl, p7zip, and dosfstools.\n Do you want to proceed? [y/n]: " "$drive"
+		printf " The disk '%s' will be erased,\n and the following tools will be installed:\n wget, curl and dosfstools.\n Do you want to proceed? [y/n]: " "$drive"
 		read -r yn
 		case $yn in
 			[Yy]*)
@@ -106,7 +107,6 @@ prepare_for_installation(){
 
 # Burn the macOS recovery image to the target drive
 burning_drive(){
-	clear
 	myhfs=$(ls com.apple.recovery.boot/*.hfs)
 	printf "Installing macOS recovery image...\n"
 	dd bs=8M if="$myhfs" of="$drive"2 status=progress oflag=sync
@@ -117,7 +117,6 @@ burning_drive(){
 
 # Install OpenCore to the target drive
 Install_OC() {
-	clear
 	printf "Installing OpenCore to the drive...\n"
 	mount_point="/mnt"
 	new_mount_point="ocfd15364"
