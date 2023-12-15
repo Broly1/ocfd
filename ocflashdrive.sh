@@ -50,24 +50,55 @@ extract_recovery_dmg() {
 	fi
 }
 
-# Install the necessary dependencies for the script to run.
-install_dependencies(){
-	printf "Installing dependencies...\n\n"
-	sleep 2s
-	if [[ -f /etc/debian_version ]]; then
-		apt install -y wget curl dosfstools
-	elif [[ -f /etc/fedora-release ]]; then
-		dnf install -y wget curl dosfstools
-	elif [[ -f /etc/arch-release ]]; then
-		pacman -Sy --noconfirm --needed wget curl dosfstools
-	elif [[ -f /etc/alpine-release ]]; then
-		apk add wget curl dosfstools
-	elif [[ -f /etc/gentoo-release ]]; then
-		emerge --nospinner --oneshot --noreplace  wget curl dosfstools
-	else
-		printf "Your distro is not supported!\n"
-		exit 1
-	fi
+# Install dependencies based on the detected distribution
+install_dependencies() {
+    printf "Installing dependencies...\n\n"
+    sleep 2s
+
+    if [[ -f /etc/debian_version ]]; then
+        for package in "wget" "curl" "dosfstools"; do
+            if ! dpkg -s "$package" > /dev/null 2>&1; then
+                apt install -y "$package"
+            else
+                printf "Package %s is already installed.\n" "$package"
+            fi
+        done
+    elif [[ -f /etc/fedora-release ]]; then
+        for package in "wget" "curl" "dosfstools"; do
+            if ! rpm -q "$package" > /dev/null 2>&1; then
+                dnf install -y "$package"
+            else
+                printf "Package %s is already installed.\n" "$package"
+            fi
+        done
+    elif [[ -f /etc/arch-release ]]; then
+        for package in "wget" "curl" "dosfstools"; do
+            if ! pacman -Q "$package" > /dev/null 2>&1; then
+                pacman -Sy --noconfirm --needed "$package"
+            else
+                printf "Package %s is already installed.\n" "$package"
+            fi
+        done
+    elif [[ -f /etc/alpine-release ]]; then
+        for package in "wget" "curl" "dosfstools"; do
+            if ! apk info "$package" > /dev/null 2>&1; then
+                apk add "$package"
+            else
+                printf "Package %s is already installed.\n" "$package"
+            fi
+        done
+    elif [[ -f /etc/gentoo-release ]]; then
+        for package in "wget" "curl" "dosfstools"; do
+            if ! emerge --search "$package" | grep -q "^$package/"; then
+                emerge --nospinner --oneshot --noreplace "$package"
+            else
+                printf "Package %s is already installed.\n" "$package"
+            fi
+        done
+    else
+        printf "Your distro is not supported!\n"
+        exit 1
+    fi
 }
 
 # Format the USB drive.
@@ -89,8 +120,8 @@ prepare_for_installation(){
 		read -r yn
 		case $yn in
 			[Yy]*)
-				extract_recovery_dmg "$@"
 				install_dependencies "$@"
+				extract_recovery_dmg "$@"
 				format_drive "$@"
 				break
 				;;
@@ -135,6 +166,7 @@ Install_OC() {
 	# Copy OpenCore EFI files
 	cp -r ../../X64/EFI/ "${mount_point}"
 	cp -r ../../Docs/Sample.plist "${mount_point}/EFI/OC/"
+	clear
 	printf " OpenCore has been installed to the drive!\n Please open '/mnt' and edit OC for your machine!!\n"
 	ls -1 "${mount_point}/EFI/OC"
 }
