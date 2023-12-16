@@ -28,26 +28,24 @@ get_the_drive(){
 	fi
 }
 
-# Extract the macOS recovery image from the downloaded DMG file.
-extract_recovery_dmg() {
-	recovery_dir=com.apple.recovery.boot
-	recovery_file1="$recovery_dir/BaseSystem.dmg"
-	recovery_file2="$recovery_dir/RecoveryImage.dmg"
-	rm -rf "$recovery_dir"/*.hfs
-	printf "Downloading 7zip.\n"
-	wget -O - "https://sourceforge.net/projects/sevenzip/files/7-Zip/23.01/7z2301-linux-x64.tar.xz" | tar -xJf - 7zz
-	chmod +x 7zz
-
-	if [ -e "$recovery_file1" ]; then
-		printf "  Extracting Recovery...\n %s $recovery_file1!\n"
-		./7zz e -bso0 -bsp1 -tdmg "$recovery_file1" -aoa -o"$recovery_dir" -- *.hfs; rm -rf 7zz
-	elif [ -e "$recovery_file2" ]; then
-		printf "\n  Extracting Recovery...\n %s $recovery_file2!\n"
-		./7zz e -bso0 -bsp1 -tdmg "$recovery_file2" -aoa -o"$recovery_dir" -- *.hfs; rm -rf 7zz
-	else
-		printf "Please download the macOS Recovery with macrecovery!\n"
-		exit 1
-	fi
+# Ask user to confirm and continue installation.
+confirm_continue(){
+	while true; do
+		printf " The disk '%s' will be erased,\n and the following tools will be installed:\n wget, curl and dosfstools.\n Do you want to proceed? [y/n]: " "$drive"
+		read -r yn
+		case $yn in
+			[Yy]*)
+				break
+				;;
+			[Nn]*) 
+				printf "Exiting the script...\n"
+				exit 
+				;;
+			*) 
+				printf "Please answer yes or no.\n" 
+				;;
+		esac
+	done
 }
 
 # Install dependencies based on the detected distribution
@@ -101,6 +99,28 @@ install_dependencies() {
     fi
 }
 
+# Extract the macOS recovery image from the downloaded DMG file.
+extract_recovery_dmg() {
+	recovery_dir=com.apple.recovery.boot
+	recovery_file1="$recovery_dir/BaseSystem.dmg"
+	recovery_file2="$recovery_dir/RecoveryImage.dmg"
+	rm -rf "$recovery_dir"/*.hfs
+	printf "Downloading 7zip.\n"
+	wget -O - "https://sourceforge.net/projects/sevenzip/files/7-Zip/23.01/7z2301-linux-x64.tar.xz" | tar -xJf - 7zz
+	chmod +x 7zz
+
+	if [ -e "$recovery_file1" ]; then
+		printf "  Extracting Recovery...\n %s $recovery_file1!\n"
+		./7zz e -bso0 -bsp1 -tdmg "$recovery_file1" -aoa -o"$recovery_dir" -- *.hfs; rm -rf 7zz
+	elif [ -e "$recovery_file2" ]; then
+		printf "\n  Extracting Recovery...\n %s $recovery_file2!\n"
+		./7zz e -bso0 -bsp1 -tdmg "$recovery_file2" -aoa -o"$recovery_dir" -- *.hfs; rm -rf 7zz
+	else
+		printf "Please download the macOS Recovery with macrecovery!\n"
+		exit 1
+	fi
+}
+
 # Format the USB drive.
 format_drive(){
 	printf "Formatting the USB drive...\n\n"
@@ -111,29 +131,6 @@ format_drive(){
 	sgdisk "$drive" --new=0:0: -t 0:af00 && partprobe
 	mkfs.fat -F 32 "$drive"1
 	sleep 2s
-}
-
-# Prompt the user to start installation.
-prepare_for_installation(){
-	while true; do
-		printf " The disk '%s' will be erased,\n and the following tools will be installed:\n wget, curl and dosfstools.\n Do you want to proceed? [y/n]: " "$drive"
-		read -r yn
-		case $yn in
-			[Yy]*)
-				install_dependencies "$@"
-				extract_recovery_dmg "$@"
-				format_drive "$@"
-				break
-				;;
-			[Nn]*) 
-				printf "Exiting the script...\n"
-				exit 
-				;;
-			*) 
-				printf "Please answer yes or no.\n" 
-				;;
-		esac
-	done
 }
 
 # Burn the macOS recovery image to the target drive
@@ -174,7 +171,10 @@ Install_OC() {
 main() {
 	welcome "$@"
 	get_the_drive "$@"
-	prepare_for_installation "$@"
+	confirm_continue "$@"
+	install_dependencies "$@"
+	extract_recovery_dmg "$@"
+	format_drive "$@"
 	burning_drive "$@"
 	Install_OC "$@"
 }
