@@ -13,39 +13,55 @@ welcome(){
 }
 
 # Get the USB drive selected by the user.
-get_the_drive(){
-	clear
-	printf "Please select the USB drive to use:\n\n"
-	readarray -t lines < <((lsblk -p -no name,size,MODEL,VENDOR,TRAN | grep "usb"))
-	select choice in "${lines[@]}"; do
-		[[ -n "$choice" ]] || { printf ">>> Invalid Selection!\n" >&2; continue; }
-		break
-	done
-	read -r drive _ <<<"$choice"
-	if [[ -z "$choice" ]]; then
-		printf "Please insert the USB Drive and try again.\n"
+get_the_drive() {
+    while true; do
+        printf "Please Select the USB Drive\nFrom the Following List!\n"
+        readarray -t lines < <(lsblk -p -no name,size,MODEL,VENDOR,TRAN | grep "usb")
+        for ((i=0; i<${#lines[@]}; i++)); do
+            printf "%d) %s\n" "$((i+1))" "${lines[i]}"
+        done
+        printf "r) Refresh\n"
+        read -r -p "#? " choice
+        clear
+        if [ "$choice" == "r" ]; then
+            printf "Refreshing USB Drive List...\n"
+            continue
+        fi
+        if [[ "$choice" =~ ^[0-9]+$ && "$choice" -ge 1 && "$choice" -le "${#lines[@]}" ]]; then
+            selected_drive_line="${lines[$((choice-1))]}"
+            drive=$(echo "$selected_drive_line" | awk '{print $1}')
+            break
+        else
+            printf "Invalid selection. Please try again.\n"
+        fi
+    done
+}
+
+# Check if the macOS recovery file exists
+get_recovery() {
+	local recovery_dir="com.apple.recovery.boot"
+	local recovery_file1="$recovery_dir/BaseSystem.dmg"
+	local recovery_file2="$recovery_dir/RecoveryImage.dmg"
+	if [ ! -e "$recovery_file1" ] && [ ! -e "$recovery_file2" ]; then
+		printf "macOS recovery file not found.\nPlease download the macOS Recovery with macrecovery!\n"
 		exit 1
 	fi
 }
 
 # Ask user to confirm and continue installation.
-confirm_continue(){
-	while true; do
-		printf " The disk '%s' will be erased,\n and the following tools will be installed:\n wget, curl and dosfstools.\n Do you want to proceed? [y/n]: " "$drive"
-		read -r yn
-		case $yn in
-			[Yy]*)
-				break
-				;;
-			[Nn]*) 
-				printf "Exiting the script...\n"
-				exit 
-				;;
-			*) 
-				printf "Please answer yes or no.\n" 
-				;;
-		esac
-	done
+confirm_continue() {
+    while true; do
+        printf "The drive below will be erased: \n'%s' \n\nThe following tools will be installed: wget, curl, gdisk, and dosfstools.\nDo you want to proceed? [y/n]: " "$selected_drive_line"
+        read -r yn
+        case $yn in
+            [Yy]*) break ;;
+            [Nn]*) 
+                printf "Exiting the script...\n"
+                exit ;;
+            *) 
+                printf "Please answer yes or no.\n" ;;
+        esac
+    done
 }
 
 # Install dependencies based on the detected distribution
@@ -54,7 +70,7 @@ install_dependencies() {
     sleep 2s
 
     if [[ -f /etc/debian_version ]]; then
-        for package in "wget" "curl" "dosfstools"; do
+        for package in "wget" "curl" "dosfstools" "gdisk"; do
             if ! dpkg -s "$package" > /dev/null 2>&1; then
                 apt install -y "$package"
             else
@@ -62,7 +78,7 @@ install_dependencies() {
             fi
         done
     elif [[ -f /etc/fedora-release ]]; then
-        for package in "wget" "curl" "dosfstools"; do
+        for package in "wget" "curl" "dosfstools" "gdisk"; do
             if ! rpm -q "$package" > /dev/null 2>&1; then
                 dnf install -y "$package"
             else
@@ -70,7 +86,7 @@ install_dependencies() {
             fi
         done
     elif [[ -f /etc/arch-release ]]; then
-        for package in "wget" "curl" "dosfstools"; do
+        for package in "wget" "curl" "dosfstools" "gptfdisk"; do
             if ! pacman -Q "$package" > /dev/null 2>&1; then
                 pacman -Sy --noconfirm --needed "$package"
             else
@@ -101,9 +117,6 @@ install_dependencies() {
 
 # Extract the macOS recovery image from the downloaded DMG file.
 extract_recovery_dmg() {
-	recovery_dir=com.apple.recovery.boot
-	recovery_file1="$recovery_dir/BaseSystem.dmg"
-	recovery_file2="$recovery_dir/RecoveryImage.dmg"
 	rm -rf "$recovery_dir"/*.hfs
 	printf "Downloading 7zip.\n"
 	wget -O - "https://sourceforge.net/projects/sevenzip/files/7-Zip/23.01/7z2301-linux-x64.tar.xz" | tar -xJf - 7zz
@@ -115,9 +128,6 @@ extract_recovery_dmg() {
 	elif [ -e "$recovery_file2" ]; then
 		printf "\n  Extracting Recovery...\n %s $recovery_file2!\n"
 		./7zz e -bso0 -bsp1 -tdmg "$recovery_file2" -aoa -o"$recovery_dir" -- *.hfs; rm -rf 7zz
-	else
-		printf "Please download the macOS Recovery with macrecovery!\n"
-		exit 1
 	fi
 }
 
@@ -144,38 +154,36 @@ burning_drive(){
 }
 
 # Install OpenCore to the target drive
-Install_OC() {
-	printf "Installing OpenCore to the drive...\n"
-	mount_point="/mnt"
-	new_mount_point="ocfd15364"
+install_OC() {
+    printf "Installing OpenCore to the drive...\n"
+    temp_mount="$(mktemp -d)"
+    if mount -t vfat "$drive"1 "$temp_mount" -o rw,umask=000; then
+        sleep 3s
 
-	# Check if the mount point directory is not empty
-	if [ -n "$(ls -A "$mount_point")" ]; then
-		# Create a new mount point if it's not empty
-		mount_directory="${mount_point}/${new_mount_point}"
-		mkdir -p "$mount_directory"
-	fi
+        # Copy OpenCore EFI files
+        cp -r ../../X64/EFI/ "$temp_mount"
+        cp -r ../../Docs/Sample.plist "${temp_mount}/EFI/OC/"
+        clear
+        printf "OpenCore has been installed to the drive!\nPlease open '%s' and edit OC for your machine!!\n" "$temp_mount/EFI/OC"
+        ls -1 "${temp_mount}/EFI/OC"
+    else
+        printf "Error: Failed to mount the drive.\n"
+    fi
 
-	# Mount the target drive
-	mount -t vfat "$drive"1 "${mount_point}" -o rw,umask=000
-	sleep 3s
-
-	# Copy OpenCore EFI files
-	cp -r ../../X64/EFI/ "${mount_point}"
-	cp -r ../../Docs/Sample.plist "${mount_point}/EFI/OC/"
-	clear
-	printf " OpenCore has been installed to the drive!\n Please open '/mnt' and edit OC for your machine!!\n"
-	ls -1 "${mount_point}/EFI/OC"
+    # Unmount and cleanup
+    umount "$temp_mount"
+    rm -rf "$temp_mount"
 }
 
 main() {
 	welcome "$@"
 	get_the_drive "$@"
+	get_recovery "$@"
 	confirm_continue "$@"
 	install_dependencies "$@"
 	extract_recovery_dmg "$@"
 	format_drive "$@"
 	burning_drive "$@"
-	Install_OC "$@"
+	install_OC "$@"
 }
 main "$@"
