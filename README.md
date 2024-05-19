@@ -18,8 +18,8 @@ This script is designed to create an OpenCore USB-installer on Linux. It automat
 
 1. Open a terminal window.
 2. Navigate to the directory containing the script using the `cd` command.
-3. Make the script executable if it's not already: `chmod +x ocflashdrive.sh`
-4. Run the script: `./ocflashdrive.sh`
+3. Make the script executable if it's not already: `chmod +x ocfd.sh`
+4. Run the script: `./ocfd.sh`
 5. The script will guide you through the process step by step.
 
 ## Features
