@@ -82,7 +82,7 @@ confirm_continue() {
     clear
     banner "$@"
     while true; do
-        printf "The drive below will be erased: \n'%s' \n\nThe following tools will be installed: \nwget, curl, gdisk, and dosfstools.\nDo you want to proceed? [y/n]: " "$selected_drive_line"
+        printf "Warning the drive below will be erased: \n'%s' \n\nThe following tools will be installed: \nwget, curl, gdisk, and dosfstools.\nDo you want to proceed? [y/n]: " "$selected_drive_line"
         read -r yn
         case $yn in
             [Yy]*) break ;;
