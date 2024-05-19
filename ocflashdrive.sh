@@ -4,16 +4,42 @@
 # https://www.gnu.org/licenses/gpl-3.0.txt
 # This script is intended to create an OpenCore USB-installer on Linux.
 
+banner() {
+    cat <<"EOF"
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+██░▄▄▄░██░▄▄▀██░▄▄▄██░████░▄▄▀██░▄▄▄░██░██░██░▄▄▀██░▄▄▀█▄░▄██░███░██░▄▄▄
+██░███░██░█████░▄▄███░████░▀▀░██▄▄▄▀▀██░▄▄░██░██░██░▀▀▄██░████░█░███░▄▄▄
+██░▀▀▀░██░▀▀▄██░█████░▀▀░█░██░██░▀▀▀░██░██░██░▀▀░██░██░█▀░▀███▄▀▄███░▀▀▀
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+
+EOF
+}
+
+check_for_internet() {
+    clear
+    banner "$@"
+    # Check for internet connectivity
+    if ping -q -c 1 -W 1 google.com >/dev/null; then
+        :
+    else
+        printf "No internet connection. Unable to download dependencies.\n"
+        exit 1
+    fi
+}
+
 # This function clears the screen and checks if the user is root. If not, it will execute the script with sudo.
-welcome(){
-	clear
-	printf "Welcome to the OpenCore USB-installer script.\n\n"
-	[[ "$(whoami)" != "root" ]] && exec sudo -- "$0" "$@"
-	set -e
+get_root(){
+    clear
+    banner "$@"
+    printf "Please enter your password:\n"
+    [[ "$(whoami)" != "root" ]] && exec sudo -- "$0" "$@"
+    set -e
 }
 
 # Get the USB drive selected by the user.
 get_the_drive() {
+    clear
+    banner "$@"
     while true; do
         printf "Please Select the USB Drive\nFrom the Following List!\n"
         readarray -t lines < <(lsblk -p -no name,size,MODEL,VENDOR,TRAN | grep "usb")
@@ -23,6 +49,7 @@ get_the_drive() {
         printf "r) Refresh\n"
         read -r -p "#? " choice
         clear
+        banner "$@"
         if [ "$choice" == "r" ]; then
             printf "Refreshing USB Drive List...\n"
             continue
@@ -39,19 +66,21 @@ get_the_drive() {
 
 # Check if the macOS recovery file exists
 get_recovery() {
-	local recovery_dir="com.apple.recovery.boot"
-	local recovery_file1="$recovery_dir/BaseSystem.dmg"
-	local recovery_file2="$recovery_dir/RecoveryImage.dmg"
-	if [ ! -e "$recovery_file1" ] && [ ! -e "$recovery_file2" ]; then
-		printf "macOS recovery file not found.\nPlease download the macOS Recovery with macrecovery!\n"
-		exit 1
-	fi
+    local recovery_dir="com.apple.recovery.boot"
+    local recovery_file1="$recovery_dir/BaseSystem.dmg"
+    local recovery_file2="$recovery_dir/RecoveryImage.dmg"
+    if [ ! -e "$recovery_file1" ] && [ ! -e "$recovery_file2" ]; then
+        printf "macOS recovery file not found.\nPlease download the macOS Recovery with macrecovery!\n"
+        exit 1
+    fi
 }
 
 # Ask user to confirm and continue installation.
 confirm_continue() {
+    clear
+    banner "$@"
     while true; do
-        printf "The drive below will be erased: \n'%s' \n\nThe following tools will be installed: wget, curl, gdisk, and dosfstools.\nDo you want to proceed? [y/n]: " "$selected_drive_line"
+        printf "The drive below will be erased: \n'%s' \n\nThe following tools will be installed: \nwget, curl, gdisk, and dosfstools.\nDo you want to proceed? [y/n]: " "$selected_drive_line"
         read -r yn
         case $yn in
             [Yy]*) break ;;
@@ -66,6 +95,8 @@ confirm_continue() {
 
 # Install dependencies based on the detected distribution
 install_dependencies() {
+    clear
+    banner "$@"
     printf "Installing dependencies...\n\n"
     sleep 2s
 
@@ -117,73 +148,97 @@ install_dependencies() {
 
 # Extract the macOS recovery image from the downloaded DMG file.
 extract_recovery_dmg() {
-	rm -rf "$recovery_dir"/*.hfs
-	printf "Downloading 7zip.\n"
-	wget -O - "https://sourceforge.net/projects/sevenzip/files/7-Zip/23.01/7z2301-linux-x64.tar.xz" | tar -xJf - 7zz
-	chmod +x 7zz
+    clear
+    banner "$@"
+    local recovery_dir="com.apple.recovery.boot"
+    local recovery_file1="$recovery_dir/BaseSystem.dmg"
+    local recovery_file2="$recovery_dir/RecoveryImage.dmg"
+    rm -rf "$recovery_dir"/*.hfs
+    printf "Downloading 7zip.\n"
+    check_for_internet "$@"
+    wget -O - "https://sourceforge.net/projects/sevenzip/files/7-Zip/23.01/7z2301-linux-x64.tar.xz" | tar -xJf - 7zz
+    chmod +x 7zz
 
-	if [ -e "$recovery_file1" ]; then
-		printf "  Extracting Recovery...\n %s $recovery_file1!\n"
-		./7zz e -bso0 -bsp1 -tdmg "$recovery_file1" -aoa -o"$recovery_dir" -- *.hfs; rm -rf 7zz
-	elif [ -e "$recovery_file2" ]; then
-		printf "\n  Extracting Recovery...\n %s $recovery_file2!\n"
-		./7zz e -bso0 -bsp1 -tdmg "$recovery_file2" -aoa -o"$recovery_dir" -- *.hfs; rm -rf 7zz
-	fi
+    if [ -e "$recovery_file1" ]; then
+        clear
+        banner "$@" 
+        printf "Extracting Recovery...\n%s$recovery_file1!"
+        ./7zz e -bso0 -bsp1 -tdmg "$recovery_file1" -aoa -o"$recovery_dir" -- *.hfs
+        rm -f "$PWD/7zz" || printf "Failed to delete 7zz"
+    elif [ -e "$recovery_file2" ]; then
+        clear
+        banner "$@"
+        printf "Extracting Recovery...\n%s$recovery_file2!"
+        ./7zz e -bso0 -bsp1 -tdmg "$recovery_file2" -aoa -o"$recovery_dir" -- *.hfs
+        rm -f "$PWD/7zz" || printf "Failed to delete 7zz"
+    fi
 }
 
 # Format the USB drive.
 format_drive(){
-	printf "Formatting the USB drive...\n\n"
-	umount "$drive"* || :
-	sleep 2s
-	wipefs -af "$drive"
-	sgdisk "$drive" --new=0:0:+300MiB -t 0:ef00 && partprobe
-	sgdisk "$drive" --new=0:0: -t 0:af00 && partprobe
-	mkfs.fat -F 32 "$drive"1
-	sleep 2s
+    clear
+    banner "$@"
+    printf "Formatting the USB drive...\n"
+    umount "$drive"* || :
+    sleep 2s
+    wipefs -af "$drive"
+    sgdisk "$drive" --new=0:0:+300MiB -t 0:ef00 && partprobe
+    sgdisk "$drive" --new=0:0: -t 0:af00 && partprobe
+    mkfs.fat -F 32 "$drive"1
+    sleep 2s
 }
 
 # Burn the macOS recovery image to the target drive
 burning_drive(){
-	myhfs=$(ls com.apple.recovery.boot/*.hfs)
-	printf "Installing macOS recovery image...\n"
-	dd bs=8M if="$myhfs" of="$drive"2 status=progress oflag=sync
-	umount "$drive"?* || :
-	sleep 3s
-	printf "The macOS recovery image has been burned to the drive!\n"
+    clear
+    banner "$@"
+    local myhfs
+    myhfs=$(ls com.apple.recovery.boot/*.hfs 2>/dev/null)
+    if [ -z "$myhfs" ]; then
+        printf "No .hfs files found in com.apple.recovery.boot directory.\n"
+        exit 1
+    fi
+    printf "Installing macOS recovery image...\n"
+    dd bs=8M if="$myhfs" of="${drive}2" status=progress oflag=sync
+    umount "$drive"* || :
+    sleep 3s
+    printf "The macOS recovery image has been burned to the drive!\n"
+    rm -f "$myhfs"
 }
 
 # Install OpenCore to the target drive
 install_OC() {
+    clear
+    banner "$@"
     printf "Installing OpenCore to the drive...\n"
+    local temp_mount
     temp_mount="$(mktemp -d)"
-    if mount -t vfat "$drive"1 "$temp_mount" -o rw,umask=000; then
+    if mount -t vfat "${drive}1" "$temp_mount" -o rw,umask=000; then
         sleep 3s
 
         # Copy OpenCore EFI files
         cp -r ../../X64/EFI/ "$temp_mount"
         cp -r ../../Docs/Sample.plist "${temp_mount}/EFI/OC/"
         clear
+        banner "$@"
         printf "OpenCore has been installed to the drive!\nPlease open '%s' and edit OC for your machine!!\n" "$temp_mount/EFI/OC"
         ls -1 "${temp_mount}/EFI/OC"
     else
         printf "Error: Failed to mount the drive.\n"
     fi
-
-    # Unmount and cleanup
-    umount "$temp_mount"
-    rm -rf "$temp_mount"
 }
 
 main() {
-	welcome "$@"
-	get_the_drive "$@"
-	get_recovery "$@"
-	confirm_continue "$@"
-	install_dependencies "$@"
-	extract_recovery_dmg "$@"
-	format_drive "$@"
-	burning_drive "$@"
-	install_OC "$@"
+    check_for_internet "$@"
+    get_root "$@"
+    get_the_drive "$@"
+    get_recovery "$@"
+    confirm_continue "$@"
+    install_dependencies "$@"
+    extract_recovery_dmg "$@"
+    format_drive "$@"
+    burning_drive "$@"
+    install_OC "$@"
 }
+
 main "$@"
