@@ -148,6 +148,30 @@ install_dependencies() {
     fi
 }
 
+# Download latest 7zip binary
+BASE_URL="https://sourceforge.net/projects/sevenzip/files/7-Zip/"
+
+get_latest_version_7z() {
+    page_content=$(curl -s "$BASE_URL")
+    latest_version=$(echo "$page_content" | grep -oP '(?<=href="/projects/sevenzip/files/7-Zip/)[0-9]+\.[0-9]+' | sort -V | tail -n 1)
+    printf "%s\n" "$latest_version"
+}
+
+download_and_extract_7zz() {
+    latest_version=$(get_latest_version_7z)
+    if [ -z "$latest_version" ]; then
+        printf "Could not find the latest version.\n"
+        exit 1
+    fi
+    file_url="${BASE_URL}${latest_version}/7z${latest_version//./}-linux-x64.tar.xz"
+    printf "Downloading 7z%slinux-x64.tar.xz...\n" "${latest_version//./}-"
+    curl -LO "$file_url"
+    printf "Extracting the 7zz binary...\n"
+    tar -xJf "7z${latest_version//./}-linux-x64.tar.xz" 7zz
+    rm "7z${latest_version//./}-linux-x64.tar.xz"
+    printf "Extracted 7zz binary for version %s\n" "$latest_version"
+}
+
 # Extract the macOS recovery image from the downloaded DMG file.
 extract_recovery_dmg() {
     clear
@@ -158,8 +182,13 @@ extract_recovery_dmg() {
     rm -rf "$recovery_dir"/*.hfs
     printf "Downloading 7zip.\n"
     check_for_internet "$@"
-    wget -qO - "https://sourceforge.net/projects/sevenzip/files/7-Zip/23.01/7z2301-linux-x64.tar.xz" | tar -xJf - 7zz > /dev/null 2>&1
-    chmod +x 7zz
+    download_and_extract_7zz "$@"
+
+    if [[ ! -f 7zz ]]; then
+        printf "Error: 7zz was not downloaded or is missing.\n"
+        exit 1
+    fi
+        chmod +x 7zz
 
     if [ -e "$recovery_file1" ]; then
         clear
