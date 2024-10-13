@@ -68,12 +68,15 @@ get_the_drive() {
 
 # Check if the macOS recovery file exists
 get_recovery() {
-    local recovery_dir="com.apple.recovery.boot"
-    local recovery_file1="$recovery_dir/BaseSystem.dmg"
-    local recovery_file2="$recovery_dir/RecoveryImage.dmg"
+    recovery_dir="com.apple.recovery.boot"
+    recovery_file1="$recovery_dir/BaseSystem.dmg"
+    recovery_file2="$recovery_dir/RecoveryImage.dmg"
+    
     if [ ! -e "$recovery_file1" ] && [ ! -e "$recovery_file2" ]; then
         printf "macOS recovery file not found.\nPlease download the macOS Recovery with macrecovery!\n"
         exit 1
+    else
+        printf "macOS recovery files found. Continuing...\n"
     fi
 }
 
@@ -176,9 +179,7 @@ download_and_extract_7zz() {
 extract_recovery_dmg() {
     clear
     banner "$@"
-    local recovery_dir="com.apple.recovery.boot"
-    local recovery_file1="$recovery_dir/BaseSystem.dmg"
-    local recovery_file2="$recovery_dir/RecoveryImage.dmg"
+    get_recovery "$@"
     rm -rf "$recovery_dir"/*.hfs
     printf "Downloading 7zip.\n"
     check_for_internet "$@"
